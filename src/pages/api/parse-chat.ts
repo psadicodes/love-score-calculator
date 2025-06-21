@@ -4,28 +4,42 @@ const parseWhatsAppChat = (content: string): ChatData => {
   const lines = content.split('\n').filter(line => line.trim());
   const messages: Message[] = [];
   
-  // WhatsApp message regex pattern
-  const messagePattern = /^(\d{1,2}\/\d{1,2}\/\d{4}),?\s+(\d{1,2}:\d{2})\s*([ap]m)?\s*-\s*([^:]+):\s*(.*)$/i;
+  // Updated WhatsApp message regex pattern to handle your format: [08/06/25, 10:47:07 PM]
+  const messagePattern = /^\[(\d{1,2}\/\d{1,2}\/\d{2,4}),\s+(\d{1,2}:\d{2}:\d{2})\s+([AP]M)\]\s+([^:]+):\s*(.*)$/;
   
   let participants: string[] = [];
+  
+  console.log('Parsing chat with', lines.length, 'lines');
   
   for (const line of lines) {
     const match = line.match(messagePattern);
     if (match) {
       const [, date, time, ampm, sender, message] = match;
       
-      // Parse date and time
+      console.log('Matched line:', { date, time, ampm, sender, message: message.substring(0, 50) });
+      
+      // Parse date and time - handle both 2-digit and 4-digit years
       const [day, month, year] = date.split('/');
-      const [hour, minute] = time.split(':');
+      const [hour, minute, second] = time.split(':');
       let parsedHour = parseInt(hour);
       
-      if (ampm && ampm.toLowerCase() === 'pm' && parsedHour !== 12) {
+      // Convert to 24-hour format
+      if (ampm === 'PM' && parsedHour !== 12) {
         parsedHour += 12;
-      } else if (ampm && ampm.toLowerCase() === 'am' && parsedHour === 12) {
+      } else if (ampm === 'AM' && parsedHour === 12) {
         parsedHour = 0;
       }
       
-      const timestamp = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parsedHour, parseInt(minute));
+      // Handle 2-digit years (assume 20xx)
+      const fullYear = year.length === 2 ? 2000 + parseInt(year) : parseInt(year);
+      
+      const timestamp = new Date(fullYear, parseInt(month) - 1, parseInt(day), parsedHour, parseInt(minute), parseInt(second));
+      
+      // Skip system messages
+      if (message.startsWith('‎')) {
+        console.log('Skipping system message:', message);
+        continue;
+      }
       
       // Clean sender name
       const cleanSender = sender.trim();
@@ -38,8 +52,20 @@ const parseWhatsAppChat = (content: string): ChatData => {
         sender: cleanSender,
         message: message.trim()
       });
+    } else {
+      console.log('No match for line:', line);
     }
   }
+  
+  console.log('Parsed', messages.length, 'messages from', participants);
+  
+  // Add safety check for empty messages
+  if (messages.length === 0) {
+    throw new Error('No valid messages found in the chat file. Please check the file format.');
+  }
+  
+  // Sort messages by timestamp to ensure proper order
+  messages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   
   // Calculate reply times
   const messagesWithReplyTimes = messages.map((msg, index) => {
@@ -183,8 +209,8 @@ const parseWhatsAppChat = (content: string): ChatData => {
     emojiFrequency,
     wordFrequency,
     hourlyActivity,
-    startDate: messages[0]?.timestamp || new Date(),
-    endDate: messages[messages.length - 1]?.timestamp || new Date()
+    startDate: messages[0].timestamp,
+    endDate: messages[messages.length - 1].timestamp
   };
 };
 
