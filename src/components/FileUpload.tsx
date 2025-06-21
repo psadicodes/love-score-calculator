@@ -14,50 +14,97 @@ const FileUpload = ({ onFileUpload, isAnalyzing }: FileUploadProps) => {
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setIsDragOver(true);
   }, []);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragOver(false);
+    e.stopPropagation();
+    
+    // Only set isDragOver to false if we're leaving the drop zone entirely
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX;
+    const y = e.clientY;
+    
+    if (x < rect.left || x >= rect.right || y < rect.top || y >= rect.bottom) {
+      setIsDragOver(false);
+    }
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsDragOver(false);
     
     const files = Array.from(e.dataTransfer.files);
-    const txtFile = files.find(file => file.name.endsWith('.txt'));
+    console.log('Files dropped:', files);
     
-    if (txtFile) {
-      setSelectedFile(txtFile);
+    if (files.length > 0) {
+      const file = files[0];
+      console.log('File type:', file.type, 'File name:', file.name);
+      
+      // Accept .txt files
+      if (file.name.endsWith('.txt') || file.type === 'text/plain') {
+        setSelectedFile(file);
+        console.log('File accepted:', file.name);
+      } else {
+        console.log('File rejected - not a .txt file');
+        alert('Please upload a .txt file (WhatsApp chat export)');
+      }
     }
   }, []);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('File input changed');
     const file = e.target.files?.[0];
-    if (file && file.name.endsWith('.txt')) {
-      setSelectedFile(file);
+    
+    if (file) {
+      console.log('File selected:', file.name, file.type);
+      
+      if (file.name.endsWith('.txt') || file.type === 'text/plain') {
+        setSelectedFile(file);
+        console.log('File accepted via input:', file.name);
+      } else {
+        console.log('File rejected via input - not a .txt file');
+        alert('Please upload a .txt file (WhatsApp chat export)');
+      }
     }
+    
+    // Reset the input value so the same file can be selected again
+    e.target.value = '';
   };
 
   const handleUpload = () => {
     if (selectedFile) {
+      console.log('Uploading file:', selectedFile.name);
       onFileUpload(selectedFile);
     }
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
   };
 
   return (
     <div className="space-y-6">
       <div
-        className={`border-2 border-dashed rounded-lg p-8 text-center transition-all ${
+        className={`border-2 border-dashed rounded-lg p-8 text-center transition-all cursor-pointer ${
           isDragOver
             ? 'border-pink-400 bg-pink-50'
             : 'border-gray-300 hover:border-pink-300 hover:bg-pink-25'
         }`}
         onDragOver={handleDragOver}
+        onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        onClick={() => document.getElementById('file-upload')?.click()}
       >
         <Upload className="h-12 w-12 mx-auto mb-4 text-gray-400" />
         <h3 className="text-lg font-semibold mb-2">Drop your WhatsApp chat here</h3>
@@ -65,18 +112,16 @@ const FileUpload = ({ onFileUpload, isAnalyzing }: FileUploadProps) => {
         
         <input
           type="file"
-          accept=".txt"
+          accept=".txt,text/plain"
           onChange={handleFileSelect}
           className="hidden"
           id="file-upload"
         />
         
-        <label htmlFor="file-upload">
-          <Button variant="outline" className="cursor-pointer">
-            <FileText className="h-4 w-4 mr-2" />
-            Choose File
-          </Button>
-        </label>
+        <Button variant="outline" className="cursor-pointer" type="button">
+          <FileText className="h-4 w-4 mr-2" />
+          Choose File
+        </Button>
       </div>
 
       {selectedFile && (
@@ -92,20 +137,30 @@ const FileUpload = ({ onFileUpload, isAnalyzing }: FileUploadProps) => {
               </div>
             </div>
             
-            <Button 
-              onClick={handleUpload} 
-              disabled={isAnalyzing}
-              className="bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600"
-            >
-              {isAnalyzing ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                'Analyze Chat'
-              )}
-            </Button>
+            <div className="flex items-center space-x-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleRemoveFile}
+                disabled={isAnalyzing}
+              >
+                Remove
+              </Button>
+              <Button 
+                onClick={handleUpload} 
+                disabled={isAnalyzing}
+                className="bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600"
+              >
+                {isAnalyzing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Analyzing...
+                  </>
+                ) : (
+                  'Analyze Chat'
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       )}
