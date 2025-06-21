@@ -1,9 +1,4 @@
-
-import { NextApiRequest, NextApiResponse } from 'next';
 import { ChatData, Message, EmojiData, WordData, ReplyTimeData, HourlyActivity } from '@/types/chat';
-
-// Since we can't use Next.js API routes in this Vite setup, I'll create a mock API handler
-// In a real Next.js app, this would be in pages/api/ or app/api/
 
 const parseWhatsAppChat = (content: string): ChatData => {
   const lines = content.split('\n').filter(line => line.trim());
