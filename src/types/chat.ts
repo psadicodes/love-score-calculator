@@ -1,4 +1,3 @@
-
 export interface Message {
   timestamp: Date;
   sender: string;
@@ -30,15 +29,24 @@ export interface HourlyActivity {
   sender: string;
 }
 
+export interface DailyEmojiData {
+  date: string;
+  [sender: string]: number;
+}
+
 export interface ChatData {
   messages: Message[];
   participants: string[];
   totalMessages: number;
+  messageCountByUser: { [user: string]: number };
+  wordCountByUser: { [user: string]: number };
+  mediaCount: number;
   avgReplyTime: number;
   totalEmojis: number;
   loveScore: number;
   replyTimes: ReplyTimeData[];
   emojiFrequency: EmojiData[];
+  dailyEmojiData: DailyEmojiData[];
   wordFrequency: WordData[];
   hourlyActivity: HourlyActivity[];
   startDate: Date;

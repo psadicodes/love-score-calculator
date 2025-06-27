@@ -1,169 +1,110 @@
-
 import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Upload, FileText, Loader2 } from 'lucide-react';
+import { Upload, FileText, Loader2, X, CheckCircle } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 
 interface FileUploadProps {
   onFileUpload: (file: File) => void;
   isAnalyzing: boolean;
 }
 
-const FileUpload = ({ onFileUpload, isAnalyzing }: FileUploadProps) => {
+export const FileUpload = ({ onFileUpload, isAnalyzing }: FileUploadProps) => {
+  const [file, setFile] = useState<File | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const { toast } = useToast();
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(true);
-  }, []);
-
-  const handleDragEnter = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    // Only set isDragOver to false if we're leaving the drop zone entirely
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX;
-    const y = e.clientY;
-    
-    if (x < rect.left || x >= rect.right || y < rect.top || y >= rect.bottom) {
-      setIsDragOver(false);
-    }
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(false);
-    
-    const files = Array.from(e.dataTransfer.files);
-    console.log('Files dropped:', files);
-    
-    if (files.length > 0) {
-      const file = files[0];
-      console.log('File type:', file.type, 'File name:', file.name);
-      
-      // Accept .txt files
-      if (file.name.endsWith('.txt') || file.type === 'text/plain') {
-        setSelectedFile(file);
-        console.log('File accepted:', file.name);
-      } else {
-        console.log('File rejected - not a .txt file');
-        alert('Please upload a .txt file (WhatsApp chat export)');
-      }
-    }
-  }, []);
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('File input changed');
-    const file = e.target.files?.[0];
-    
-    if (file) {
-      console.log('File selected:', file.name, file.type);
-      
-      if (file.name.endsWith('.txt') || file.type === 'text/plain') {
-        setSelectedFile(file);
-        console.log('File accepted via input:', file.name);
-      } else {
-        console.log('File rejected via input - not a .txt file');
-        alert('Please upload a .txt file (WhatsApp chat export)');
-      }
-    }
-    
-    // Reset the input value so the same file can be selected again
-    e.target.value = '';
-  };
-
-  const handleUpload = () => {
+  const handleFile = useCallback((selectedFile: File | null) => {
     if (selectedFile) {
-      console.log('Uploading file:', selectedFile.name);
-      onFileUpload(selectedFile);
+      if (selectedFile.name.endsWith('.txt') && selectedFile.type === 'text/plain') {
+        setFile(selectedFile);
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Invalid File Type",
+          description: "Please upload a valid .txt file exported from WhatsApp.",
+        });
+      }
+    }
+  }, [toast]);
+
+  const onDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragOver(false);
+    handleFile(event.dataTransfer.files?.[0] ?? null);
+  }, [handleFile]);
+
+  const onDragEnter = useCallback(() => setIsDragOver(true), []);
+  const onDragLeave = useCallback(() => setIsDragOver(false), []);
+
+  const onFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    handleFile(event.target.files?.[0] ?? null);
+    event.target.value = '';
+  };
+
+  const handleAnalyze = () => {
+    if (file) {
+      onFileUpload(file);
     }
   };
 
-  const handleRemoveFile = () => {
-    setSelectedFile(null);
-  };
+  if (file) {
+    return (
+      <div className="text-center space-y-6">
+        <CheckCircle className="h-16 w-16 mx-auto text-green-500" />
+        <div className="space-y-1">
+          <h3 className="text-2xl font-semibold">File Ready for Analysis</h3>
+          <p className="text-muted-foreground">{file.name} ({(file.size / 1024).toFixed(1)} KB)</p>
+        </div>
+        <div className="flex justify-center gap-4">
+          <Button variant="outline" onClick={() => setFile(null)} disabled={isAnalyzing}>
+            <X className="h-4 w-4 mr-2" />
+            Clear
+          </Button>
+          <Button onClick={handleAnalyze} disabled={isAnalyzing}>
+            {isAnalyzing ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Analyzing...
+              </>
+            ) : (
+              'Start Analysis'
+            )}
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div
-        className={`border-2 border-dashed rounded-lg p-8 text-center transition-all cursor-pointer ${
-          isDragOver
-            ? 'border-pink-400 bg-pink-50'
-            : 'border-gray-300 hover:border-pink-300 hover:bg-pink-25'
-        }`}
-        onDragOver={handleDragOver}
-        onDragEnter={handleDragEnter}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        onClick={() => document.getElementById('file-upload')?.click()}
-      >
-        <Upload className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-        <h3 className="text-lg font-semibold mb-2">Drop your WhatsApp chat here</h3>
-        <p className="text-gray-600 mb-4">or click to browse files</p>
-        
-        <input
-          type="file"
-          accept=".txt,text/plain"
-          onChange={handleFileSelect}
-          className="hidden"
-          id="file-upload"
-        />
-        
-        <Button variant="outline" className="cursor-pointer" type="button">
-          <FileText className="h-4 w-4 mr-2" />
-          Choose File
-        </Button>
-      </div>
-
-      {selectedFile && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <FileText className="h-5 w-5 text-green-600" />
-              <div>
-                <p className="font-medium text-green-800">{selectedFile.name}</p>
-                <p className="text-sm text-green-600">
-                  {(selectedFile.size / 1024).toFixed(1)} KB
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={handleRemoveFile}
-                disabled={isAnalyzing}
-              >
-                Remove
-              </Button>
-              <Button 
-                onClick={handleUpload} 
-                disabled={isAnalyzing}
-                className="bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600"
-              >
-                {isAnalyzing ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Analyzing...
-                  </>
-                ) : (
-                  'Analyze Chat'
-                )}
-              </Button>
-            </div>
-          </div>
+    <div
+      onDrop={onDrop}
+      onDragOver={(e) => e.preventDefault()}
+      onDragEnter={onDragEnter}
+      onDragLeave={onDragLeave}
+      className={`relative rounded-xl border-2 border-dashed p-12 text-center transition-colors
+        ${isDragOver ? 'border-primary bg-primary/10' : 'border-border'}`}
+    >
+      <div className="space-y-4">
+        <div className="mx-auto h-16 w-16 text-muted-foreground">
+          <Upload />
         </div>
-      )}
+        <h3 className="text-2xl font-semibold">Upload your .txt chat file</h3>
+        <p className="text-muted-foreground">
+          Drag & drop your file here or{' '}
+          <label htmlFor="file-upload" className="font-semibold text-primary cursor-pointer hover:underline">
+            click to browse
+          </label>
+        </p>
+      </div>
+      <input
+        type="file"
+        id="file-upload"
+        accept=".txt,text/plain"
+        onChange={onFileSelect}
+        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+        disabled={isAnalyzing}
+      />
     </div>
   );
 };
